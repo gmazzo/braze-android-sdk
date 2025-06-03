@@ -42,6 +42,7 @@ import com.braze.ui.support.setActivityRequestedOrientation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.lang.ref.WeakReference
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
@@ -222,8 +223,8 @@ open class BrazeInAppMessageManager : InAppMessageManagerBase() {
             }
 
             // We need the current Activity so that we can inflate or programmatically create the in-app message
-            // View for each Activity. We cannot share the View because doing so would create a memory leak.
-            mActivity = activity
+            // View for each Activity. We use a WeakReference to avoid creating a memory leak.
+            mActivity = WeakReference(activity)
             if (mApplicationContext == null) {
                 // Note, because this class is a singleton and doesn't have any dependencies passed in,
                 // we cache the application context here because it's not available (as it normally would be
@@ -337,7 +338,7 @@ open class BrazeInAppMessageManager : InAppMessageManagerBase() {
     @Suppress("LongMethod", "ReturnCount")
     open fun requestDisplayInAppMessage(): Boolean {
         return try {
-            val activity = mActivity
+            val activity = mActivity?.get()
             if (activity == null) {
                 if (!inAppMessageStack.empty()) {
                     brazelog(W) {
@@ -450,7 +451,7 @@ open class BrazeInAppMessageManager : InAppMessageManagerBase() {
     open fun resetAfterInAppMessageClose() {
         brazelog(V) { "Resetting after in-app message close." }
         inAppMessageViewWrapper = null
-        val activity = mActivity
+        val activity = mActivity?.get()
         val origOrientation = originalOrientation
         displayingInAppMessage.set(false)
         if (activity != null && origOrientation != null) {
@@ -491,7 +492,7 @@ open class BrazeInAppMessageManager : InAppMessageManagerBase() {
             return
         }
         try {
-            val activity = mActivity
+            val activity = mActivity?.get()
             if (activity == null) {
                 carryoverInAppMessage = inAppMessage
                 throw Exception(
@@ -712,7 +713,7 @@ open class BrazeInAppMessageManager : InAppMessageManagerBase() {
     @SuppressLint("InlinedApi")
     @VisibleForTesting
     open fun verifyOrientationStatus(inAppMessage: IInAppMessage): Boolean {
-        val activity = mActivity
+        val activity = mActivity?.get()
         val preferredOrientation = inAppMessage.orientation
 
         if (activity == null) {
